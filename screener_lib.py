@@ -39,9 +39,6 @@ def near_52w_high_condition(pct_from_high: float = 20.0) -> str:
 
 def oversold_recovery_condition(rsi_min: float = 25.0, rsi_max: float = 40.0,
                                  max_pct_vs_sma200: float = -10.0) -> str:
-    # % from 52-week low dropped entirely — the table already has a
-    # pct_from_52w_low column to see/sort that number directly. SMA200 is now
-    # the sole drawdown check instead of a "min N of 2" score.
     return f"""
         rsi_14 BETWEEN {rsi_min} AND {rsi_max}
         AND close > close_prev
@@ -50,12 +47,6 @@ def oversold_recovery_condition(rsi_min: float = 25.0, rsi_max: float = 40.0,
 
 
 def pullback_condition(pullback_min: float = 10.0, pullback_max: float = 25.0) -> str:
-    # No SMA50>SMA200 trend-filter option here (unlike momentum_entry) — tested
-    # and found to make results worse, not better: 47.1% win rate on a thin,
-    # concentrated 37-ticker sample when stacked on, vs 54.7% without it on 82
-    # tickers. Unlike momentum_entry's version of this same checkbox (which
-    # measurably helped, if only a little), there's no case where turning this
-    # on is the right call, so it isn't offered as an option at all.
     return f"""
         close > sma_50
         AND (high_20d - close) / NULLIF(high_20d, 0) * 100 BETWEEN {pullback_min} AND {pullback_max}
@@ -64,9 +55,6 @@ def pullback_condition(pullback_min: float = 10.0, pullback_max: float = 25.0) -
 
 
 def momentum_entry_condition(vol_multiplier: float = 1.0, require_trend_filter: bool = True) -> str:
-    # RSI fixed at 55-65 rather than "crosses above a threshold" slider — tested
-    # against real history: this range beat every crossing variant and every
-    # wider/narrower range (55.2% win rate, z=1.58, vs. z<=0.23 elsewhere).
     sql = f"""
         rsi_14 BETWEEN 55 AND 65
         AND close > sma_50 AND close_prev < sma_50_prev
@@ -85,10 +73,6 @@ STRATEGY_BUILDERS = {
     "pullback": pullback_condition,
 }
 
-# Display name + plain-English description per screener — shown in the
-# dashboard since the actual SQL condition isn't. Descriptions state
-# mechanics only (what's being checked), not a quality/performance verdict —
-# that context lives in code comments and conversation history, not the UI.
 STRATEGY_DISPLAY = {
     "near_52w_low": {
         "label": "Near 52-Week Low",
