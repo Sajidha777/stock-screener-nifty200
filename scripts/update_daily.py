@@ -1,5 +1,5 @@
 """
-update_daily.py — Incremental nightly data update
+update_daily.py — Incremental daily data update
 
 """
 
