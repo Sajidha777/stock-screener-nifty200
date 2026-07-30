@@ -66,7 +66,7 @@ def show_chart_popup(default_ticker: str) -> None:
 
     ticker = st.selectbox(
         "Select a stock", tickers, index=tickers.index(default_ticker),
-        key="popup_ticker", label_visibility="collapsed",
+        key=f"popup_ticker_{default_ticker}", label_visibility="collapsed",
         format_func=lambda t: t.removesuffix(".NS"),
     )
     time_range = st.radio(
