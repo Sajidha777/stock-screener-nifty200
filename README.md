@@ -23,7 +23,7 @@ A daily stock screener for the Nifty 200 universe, backtester to follow.
 
 ## Architecture
 
-![Pipeline architecture](images/pipeline-arch.png)
+![Pipeline architecture](images/pipeline-architecture.png)
 
 ## Running it locally
 
