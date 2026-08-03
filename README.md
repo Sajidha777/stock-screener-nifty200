@@ -1,7 +1,7 @@
 # Nifty 200 Swing Screener
 
 A daily stock screener for the Nifty 200 universe, backtester to follow. 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://stock-screener-nifty200.streamlit.app/)
+[![Live App on Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://stock-screener-nifty200.streamlit.app/)
 
 ## Features
 
