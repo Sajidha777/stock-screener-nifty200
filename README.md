@@ -21,6 +21,10 @@ A daily stock screener for the Nifty 200 universe, backtester to follow.
 - **yfinance** — data source
 - **GitHub Actions** — daily data refresh
 
+## Architecture
+
+![Pipeline architecture](images/pipeline-arch.png)
+
 ## Running it locally
 
 ```bash
