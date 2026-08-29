@@ -5,6 +5,12 @@ on:
     # 12:30 UTC = 6:00 PM IST, weekdays only. NSE closes 10:00 UTC (3:30pm
     # IST); this leaves a buffer for Yahoo Finance to publish EOD data.
     - cron: '30 12 * * 1-5'
+    # 15:30 UTC = 9:00 PM IST retry. Yahoo occasionally hasn't finalized a
+    # session's close by 12:30 UTC; incomplete rows are skipped rather than
+    # stored (see load_lib.fetch_and_store). The "Check for gaps" step below
+    # skips the actual fetch on this run if the 12:30 run already got
+    # everything, so this only hits Yahoo again when something is missing.
+    - cron: '30 15 * * 1-5'
   workflow_dispatch:  # allows manually triggering a run from the Actions tab
 
 permissions:
@@ -25,13 +31,41 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Check for gaps in today's data
+        id: gap_check
+        run: |
+          python - <<'EOF'
+          import datetime
+          import os
+          import duckdb
+
+          conn = duckdb.connect("data/screener.duckdb", read_only=True)
+          today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+          rows_today = conn.execute(
+              "SELECT COUNT(*) FROM ohlcv WHERE date = ?", [today]
+          ).fetchone()[0]
+          total_tickers = conn.execute(
+              "SELECT COUNT(DISTINCT ticker) FROM ohlcv"
+          ).fetchone()[0]
+
+          needs_run = rows_today < total_tickers
+          print(f"  {today}: {rows_today}/{total_tickers} tickers present")
+          print("  Fetching." if needs_run else "  Already complete, skipping fetch.")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"needs_run={'true' if needs_run else 'false'}\n")
+          EOF
+
       - name: Fetch latest OHLCV data
+        if: steps.gap_check.outputs.needs_run == 'true'
         run: python scripts/update_daily.py
 
       - name: Recompute indicators
+        if: steps.gap_check.outputs.needs_run == 'true'
         run: python scripts/compute_indicators.py
 
       - name: Commit and push updated database
+        if: steps.gap_check.outputs.needs_run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

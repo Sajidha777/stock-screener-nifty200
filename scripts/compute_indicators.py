@@ -201,7 +201,7 @@ def main() -> None:
     """).fetchall()
     print(f"  {'date':<12} {'open':>8} {'high':>8} {'low':>8} {'close':>8} {'volume':>12} {'rsi_14':>8} {'sma_20':>8} {'vol_ratio':>10} {'pct_52w_low':>12}")
     for row in sample:
-        print(f"  {str(row[0]):<12} {row[1]:>8.2f} {row[2]:>8.2f} {row[3]:>8.2f} {row[4]:>8.2f} {row[5]:>12,} {(row[6] or 0):>8.2f} {(row[7] or 0):>8.2f} {(row[8] or 0):>10.2f} {(row[9] or 0):>12.2f}")
+        print(f"  {str(row[0]):<12} {(row[1] or 0):>8.2f} {(row[2] or 0):>8.2f} {(row[3] or 0):>8.2f} {(row[4] or 0):>8.2f} {(row[5] or 0):>12,} {(row[6] or 0):>8.2f} {(row[7] or 0):>8.2f} {(row[8] or 0):>10.2f} {(row[9] or 0):>12.2f}")
 
     conn.close()
     print("\nDone.")

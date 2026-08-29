@@ -75,6 +75,18 @@ def fetch_and_store(conn: duckdb.DuckDBPyConnection, ticker: str, period: str = 
     df["date"]   = pd.to_datetime(df["date"]).dt.normalize()
     df["ticker"] = df["ticker"].astype(object)  # DuckDB needs object dtype, not StringDtype
 
+    # Yahoo sometimes publishes a session's volume before its close is
+    # finalized (usually resolves within the same day) — skip incomplete
+    # rows rather than storing a partial candle; the next run's overlapping
+    # window will pick it up once it's complete.
+    incomplete = df[["open", "high", "low", "close", "volume"]].isna().any(axis=1)
+    if incomplete.any():
+        print(f"    [WARN] {incomplete.sum()} incomplete row(s) skipped (pending EOD data)")
+        df = df[~incomplete]
+
+    if df.empty:
+        return
+
     conn.execute("""
         INSERT OR REPLACE INTO ohlcv
         SELECT ticker, date, open, high, low, close, volume
