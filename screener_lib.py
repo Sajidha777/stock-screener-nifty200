@@ -145,6 +145,17 @@ def get_latest_date(conn: duckdb.DuckDBPyConnection):
     return conn.execute("SELECT MAX(date) FROM indicators").fetchone()[0]
 
 
+def get_ticker_coverage(conn: duckdb.DuckDBPyConnection) -> tuple[int, int]:
+    """(tickers with data on the latest date, total tickers in the Nifty 200 list)."""
+    nifty200_csv = str(DATA_DIR / "nifty200.csv")
+    latest = get_latest_date(conn)
+    return conn.execute(f"""
+        SELECT
+            (SELECT COUNT(DISTINCT ticker) FROM indicators WHERE date = ?) AS present,
+            (SELECT COUNT(*) FROM read_csv_auto('{nifty200_csv}')) AS total
+    """, [latest]).fetchone()
+
+
 def get_todays_screener(conn: duckdb.DuckDBPyConnection, strategy: str, params: dict) -> pd.DataFrame:
     """All tickers that meet the strategy's conditions on the latest date."""
     condition = STRATEGY_BUILDERS[strategy](**params)

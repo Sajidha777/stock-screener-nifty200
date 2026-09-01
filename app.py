@@ -10,7 +10,7 @@ import streamlit as st
 from screener_lib import (
     SECTOR_LOOKBACK_DEFAULT, SECTOR_LOOKBACK_OPTIONS, STRATEGY_BOOL_PARAMS, STRATEGY_DISPLAY,
     STRATEGY_PARAMS, TRADING_DAYS_PER_YEAR, get_connection, get_latest_date, get_leading_sectors,
-    get_ohlcv, get_stocks_in_sector, get_todays_screener,
+    get_ohlcv, get_stocks_in_sector, get_ticker_coverage, get_todays_screener,
 )
 
 st.set_page_config(page_title="Nifty 200 Swing Screener", layout="wide")
@@ -49,6 +49,12 @@ def build_candlestick_figure(ohlcv_df: pd.DataFrame, ticker_name: str) -> go.Fig
     return fig
 
 
+def _color_pct_change(value: float) -> str:
+    if pd.isna(value) or value == 0:
+        return ""
+    return f"color: {'#26A69A' if value > 0 else '#EF5350'}"
+
+
 def _handle_stock_click(table_event, source_df: pd.DataFrame, session_key: str) -> None:
     clicked_ticker = source_df.iloc[table_event.selection.rows[0]]["ticker"] if table_event.selection.rows else None
     if clicked_ticker:
@@ -81,6 +87,13 @@ def show_chart_popup(default_ticker: str) -> None:
 st.title("Nifty 200 Swing Screener")
 st.caption(f"Data as of {latest_date}")
 
+coverage_present, coverage_total = get_ticker_coverage(conn)
+if coverage_present < coverage_total:
+    st.warning(
+        f"Only {coverage_present}/{coverage_total} stocks have data for {latest_date} — "
+        "some rows may be missing or stale."
+    )
+
 section = st.radio(
     "Section", ["Screener", "Leading Sectors"], horizontal=True, label_visibility="collapsed",
 )
@@ -100,14 +113,7 @@ if section == "Screener":
 
     results = get_todays_screener(conn, strategy, params)
 
-
-    def _color_pct_change(value: float) -> str:
-        if pd.isna(value) or value == 0:
-            return ""
-        return f"color: {'#26A69A' if value > 0 else '#EF5350'}"
-
-
-    st.subheader(f"Stocks flagged today — {len(results)}")
+    st.subheader(f"Stocks flagged — {latest_date} ({len(results)})")
 
     display_results = results.copy()
     display_results["ticker"] = display_results["ticker"].str.removesuffix(".NS")
@@ -137,8 +143,15 @@ else:
     )
     sectors = get_leading_sectors(conn, sector_lookback)
     sectors_event = st.dataframe(
-        sectors, width="stretch", hide_index=True,
+        sectors.style.map(_color_pct_change, subset=["avg_return", "median_return"]),
+        width="stretch", hide_index=True,
         on_select="rerun", selection_mode="single-row",
+        column_config={
+            "industry": st.column_config.TextColumn("Industry"),
+            "n_stocks": st.column_config.NumberColumn("Stocks"),
+            "avg_return": st.column_config.NumberColumn(f"% Avg Return ({sector_lookback}d)", format="%.2f"),
+            "median_return": st.column_config.NumberColumn(f"% Median Return ({sector_lookback}d)", format="%.2f"),
+        },
     )
 
     if sectors_event.selection.rows:
@@ -150,13 +163,14 @@ else:
         display_sector_stocks["ticker"] = display_sector_stocks["ticker"].str.removesuffix(".NS")
 
         sector_stocks_event = st.dataframe(
-            display_sector_stocks, width="stretch", hide_index=True,
+            display_sector_stocks.style.map(_color_pct_change, subset=["return_pct"]),
+            width="stretch", hide_index=True,
             on_select="rerun", selection_mode="single-row",
             column_config={
                 "company_name": st.column_config.TextColumn("Company Name"),
                 "ticker": st.column_config.TextColumn("Symbol"),
                 "close": st.column_config.NumberColumn("Close", format="%.2f"),
-                "return_pct": st.column_config.NumberColumn(f"Return ({sector_lookback}d)", format="%.2f"),
+                "return_pct": st.column_config.NumberColumn(f"% Return ({sector_lookback}d)", format="%.2f"),
             },
         )
         _handle_stock_click(sector_stocks_event, sector_stocks, "last_popup_ticker_sectors")

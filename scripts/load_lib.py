@@ -3,11 +3,16 @@ load_lib.py — Shared OHLCV loading logic
 """
 
 import sys
+from datetime import datetime, time
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 import pandas as pd
 import yfinance as yf
+
+IST = ZoneInfo("Asia/Kolkata")
+NSE_CLOSE_IST = time(15, 30)
 
 ROOT_DIR = Path(__file__).parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -75,10 +80,18 @@ def fetch_and_store(conn: duckdb.DuckDBPyConnection, ticker: str, period: str = 
     df["date"]   = pd.to_datetime(df["date"]).dt.normalize()
     df["ticker"] = df["ticker"].astype(object)  # DuckDB needs object dtype, not StringDtype
 
-    # Yahoo sometimes publishes a session's volume before its close is
-    # finalized (usually resolves within the same day) — skip incomplete
-    # rows rather than storing a partial candle; the next run's overlapping
-    # window will pick it up once it's complete.
+    # While the market's still open,
+    now_ist = datetime.now(IST)
+    if now_ist.time() < NSE_CLOSE_IST:
+        live_today = df["date"].dt.date == now_ist.date()
+        if live_today.any():
+            print(f"    [WARN] dropped in-progress session for {now_ist.date()} (market still open)")
+            df = df[~live_today]
+
+    if df.empty:
+        return
+
+  
     incomplete = df[["open", "high", "low", "close", "volume"]].isna().any(axis=1)
     if incomplete.any():
         print(f"    [WARN] {incomplete.sum()} incomplete row(s) skipped (pending EOD data)")
